@@ -1,0 +1,59 @@
+version: '3'
+
+services:
+  node:
+    container_name: ${PROJECT}_node
+    build:
+      context: docker/node
+    working_dir: /home/node/app
+    logging:
+      options:
+        max-size: '10m'
+        max-file: '3'
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3005
+    expose:
+      - 3005
+    volumes:
+      - ./:/home/node/app
+      - ./docker/node/bootstrap.sh:/usr/local/bin/bootstrap.sh
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT}-backend.rule=Host(`${DOCKER_DOMAIN}`)"
+    networks:
+      - default
+      - web
+    command: sh -c 'yarn && yarn dev'
+    restart: ${RESTART}
+
+  db:
+    container_name: ${PROJECT}_db
+    image: postgres:12.2-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - 127.0.0.1:${DOCKER_DB_PORT}:5432
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: ${RESTART}
+
+  adminer:
+    container_name: ${PROJECT}_adminer
+    image: adminer
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT}-adminer.rule=Host(`adminer.${DOCKER_DOMAIN}`)"
+    networks:
+      - default
+      - web
+    restart: ${RESTART}
+
+volumes:
+  db_data:
+
+networks:
+  web:
+    external: true
