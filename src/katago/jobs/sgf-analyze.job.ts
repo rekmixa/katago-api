@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Job, Queueable } from '../../queue'
 import { SgfAnalyzeResultRepository } from '../sgf-analyze-result.repository'
+import { SgfParserService } from '../sgf-parser.service'
 
 @Injectable()
 export class SgfAnalyzeJob implements Queueable {
@@ -11,12 +12,26 @@ export class SgfAnalyzeJob implements Queueable {
 
   constructor(
     private readonly sgfAnalyzeResultRepository: SgfAnalyzeResultRepository,
+    private readonly sgfParserService: SgfParserService,
   ) {}
 
   async handle(job: Job): Promise<void> {
-    this.logger.log(`Mock analyze for job ${job.id}`)
+    const sgf = job.payload?.sgf
+    if (typeof sgf !== 'string' || !sgf.trim()) {
+      throw new Error('Job payload.sgf is required')
+    }
 
-    // Мок: реальный KataGo позже
-    await this.sgfAnalyzeResultRepository.updateAnalyzeResult(job.id, {})
+    this.logger.log(`Parsing SGF for job ${job.id}`)
+    const parsed = this.sgfParserService.parse(sgf)
+
+    this.logger.log(
+      `Parsed job ${job.id}: ${parsed.boardXSize}x${parsed.boardYSize}, ` +
+        `${parsed.moves.length} moves, komi=${parsed.komi}, rules=${parsed.rules}`,
+    )
+
+    // Пока мок: сохраняем распарсенную структуру (KataGo подключим позже)
+    await this.sgfAnalyzeResultRepository.updateAnalyzeResult(job.id, {
+      parsed,
+    })
   }
 }
