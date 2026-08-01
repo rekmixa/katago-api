@@ -41,6 +41,12 @@ export type AnalyzeRequestDto = KatagoAnalyzeOptions & {
   sgf: string
 }
 
+export type AnalyzeBatchRequestDto = KatagoAnalyzeOptions & {
+  sgfs: string[]
+}
+
+export const ANALYZE_BATCH_MAX_SIZE = 1000
+
 export const KATAGO_OPTION_KEYS: (keyof KatagoAnalyzeOptions)[] = [
   'analyzeTurns',
   'maxVisits',

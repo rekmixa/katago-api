@@ -8,7 +8,10 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import { ApiTokenGuard } from '../auth/api-token.guard'
-import { AnalyzeRequestDto } from './analyze-request.dto'
+import {
+  AnalyzeBatchRequestDto,
+  AnalyzeRequestDto,
+} from './analyze-request.dto'
 import { KatagoService } from './katago.service'
 
 @Controller('api')
@@ -19,6 +22,11 @@ export class KatagoController {
   @Post('analyze')
   async startAnalyze(@Body() body: AnalyzeRequestDto) {
     return this.katagoService.startAnalyze(body ?? { sgf: '' })
+  }
+
+  @Post('analyze/batch')
+  async startAnalyzeBatch(@Body() body: AnalyzeBatchRequestDto) {
+    return this.katagoService.startAnalyzeBatch(body ?? { sgfs: [] })
   }
 
   @Get('analyze/:jobId')

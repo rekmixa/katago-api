@@ -47,6 +47,15 @@ export class SgfAnalyzeResultRepository {
     return row ? this.normalize(row) : null
   }
 
+  async findBySgfMd5In(sgfMd5List: string[]): Promise<SgfAnalyzeResult[]> {
+    if (sgfMd5List.length === 0) {
+      return []
+    }
+
+    const rows = await this.table().whereIn('sgf_md5', sgfMd5List)
+    return rows.map(row => this.normalize(row))
+  }
+
   async updateAnalyzeResult(
     jobId: number,
     analyzeResult: Record<string, unknown>,
