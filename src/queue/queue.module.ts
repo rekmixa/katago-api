@@ -8,10 +8,19 @@ import { QueueRegistry } from './queue.registry'
 import { QueueService } from './queue.service'
 import { QueueWorker } from './queue.worker'
 
+export type QueueModuleOptions = {
+  /** Воркер с cron. Для CLI обычно false. Default: true */
+  worker?: boolean
+}
+
 @Module({})
 export class QueueModule {
-  static register(queueables: Type<Queueable>[] = []): DynamicModule {
+  static register(
+    queueables: Type<Queueable>[] = [],
+    options: QueueModuleOptions = {},
+  ): DynamicModule {
     const allQueueables = [TestJob, ...queueables]
+    const enableWorker = options.worker !== false
 
     return {
       module: QueueModule,
@@ -26,7 +35,7 @@ export class QueueModule {
         JobRepository,
         QueueRegistry,
         QueueService,
-        QueueWorker,
+        ...(enableWorker ? [QueueWorker] : []),
       ],
       exports: [QueueService, JobRepository],
     }
