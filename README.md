@@ -4,15 +4,15 @@
 > Knex
 > nest-commander
 
-## Installation
+## Установка
 
 ```bash
 make cp-env
 ```
 
-##### After you must configure your app in .env file
+##### После этого настрой приложение в файле `.env`
 
-For production with Traefik v2, set in `.env`:
+Для production с Traefik v2 в `.env` укажи:
 
 ```bash
 COMPOSE_FILE=docker-compose.v2.prod.yml:docker-compose.override.yml
@@ -24,23 +24,23 @@ make migrate
 make seed
 ```
 
-View docker container logs
+Просмотр логов Docker-контейнеров:
 
 ```bash
 make logs
 ```
 
-## GPU (NVIDIA) on a new server
+## GPU (NVIDIA) на новом сервере
 
-First make sure the NVIDIA driver works on the host:
+Сначала убедись, что драйвер NVIDIA работает на хосте:
 
 ```bash
 nvidia-smi
 lspci | grep -i nvidia
 ```
 
-If `nvidia-smi` works but Docker fails with  
-`could not select device driver "nvidia" with capabilities: [[gpu]]`, install the NVIDIA Container Toolkit:
+Если `nvidia-smi` ок, а Docker падает с  
+`could not select device driver "nvidia" with capabilities: [[gpu]]`, установи NVIDIA Container Toolkit:
 
 ```bash
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
@@ -55,20 +55,20 @@ sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 ```
 
-Verify GPU access inside Docker:
+Проверка доступа к GPU из Docker:
 
 ```bash
 docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 ```
 
-Then start the project:
+Затем подними проект:
 
 ```bash
 docker-compose build --no-cache node
 docker-compose up -d
 ```
 
-`katago/analysis.cfg` is tuned for NVIDIA L40S-4Q (4 GB VRAM):
+`katago/analysis.cfg` настроен под NVIDIA L40S-4Q (4 GB VRAM):
 
 ```
 numAnalysisThreads = 4
@@ -76,9 +76,9 @@ numSearchThreadsPerAnalysisThread = 4
 nnMaxBatchSize = 8
 ```
 
-If you still hit CUDA OOM, lower `nnMaxBatchSize` (e.g. to 4) and/or the thread counts.
+Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 4) и/или число потоков.
 
-## Build Setup
+## Сборка
 
 ### Production
 
@@ -86,9 +86,9 @@ If you still hit CUDA OOM, lower `nnMaxBatchSize` (e.g. to 4) and/or the thread 
 make
 ```
 
-### Building for production
+### Сборка для production
 
-Set `COMPOSE_FILE=docker-compose.v2.prod.yml:docker-compose.override.yml` in `.env` and follow the steps above.
+В `.env` укажи `COMPOSE_FILE=docker-compose.v2.prod.yml:docker-compose.override.yml` и выполни шаги выше.
 
 ### Development
 
@@ -96,35 +96,35 @@ Set `COMPOSE_FILE=docker-compose.v2.prod.yml:docker-compose.override.yml` in `.e
 make dev
 ```
 
-## Migrations
+## Миграции
 
-Create migration:
+Создать миграцию:
 
 ```bash
 yarn knex migrate:make [name]
 ```
 
-Migrations list:
+Список миграций:
 
 ```bash
 yarn knex migrate:list
 ```
 
-Up migration:
+Применить миграцию:
 
 ```bash
 yarn knex migrate:up
 ```
 
-Down migration:
+Откатить миграцию:
 
 ```bash
 yarn knex migrate:down
 ```
 
-## Seeds
+## Сиды
 
-Create seed:
+Создать сид:
 
 ```bash
 yarn knex seed:make seed_name
@@ -134,15 +134,15 @@ yarn knex seed:make seed_name
 yarn knex seed:run
 ```
 
-## Commands
+## Команды
 
-Running test command:
+Запуск тестовой команды:
 
 ```bash
 yarn cli -- test:test -t test -sf
 ```
 
-Launch storage in local:
+Локальный запуск storage:
 
 ```bash
 http-server ./storage --cors=false
