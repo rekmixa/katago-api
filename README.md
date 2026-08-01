@@ -136,6 +136,7 @@ Content-Type: application/json
   - `{ "index": 1, "sgfMd5": "…", "status": "exists", "jobId": 45 }` — такой SGF уже есть
   - `{ "index": 2, "sgfMd5": null, "status": "error", "error": "sgf is required" }` — пустая/битая запись
 - Пустой массив / не массив / больше 1000 → `400`. Весь запрос при дубликатах **не** падает с `409`.
+- Размер тела: лимит Express по умолчанию ~100kb слишком мал для пачки; в API стоит `BODY_LIMIT` (дефолт `50mb`, см. `.env-dist`).
 
 **Получить статус / результат**
 
