@@ -12,10 +12,12 @@ export async function up(knex: Knex): Promise<void> {
       .references('id')
       .inTable('jobs')
     table.text('sgf').notNullable()
+    table.string('sgf_md5', 32).notNullable()
     table.jsonb('analyze_result').nullable()
     table.timestamps(false, true)
 
     table.unique(['job_id'])
+    table.unique(['sgf_md5'])
   })
 }
 

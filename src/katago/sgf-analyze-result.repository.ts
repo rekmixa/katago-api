@@ -19,6 +19,7 @@ export class SgfAnalyzeResultRepository {
       .insert({
         job_id: data.job_id,
         sgf: data.sgf,
+        sgf_md5: data.sgf_md5,
         analyze_result: data.analyze_result ?? null,
       })
       .returning('*')) as SgfAnalyzeResult[]
@@ -33,6 +34,14 @@ export class SgfAnalyzeResultRepository {
   async findByJobId(jobId: number): Promise<SgfAnalyzeResult | null> {
     const row = await this.table()
       .where('job_id', jobId)
+      .first()
+
+    return row ? this.normalize(row) : null
+  }
+
+  async findBySgfMd5(sgfMd5: string): Promise<SgfAnalyzeResult | null> {
+    const row = await this.table()
+      .where('sgf_md5', sgfMd5)
       .first()
 
     return row ? this.normalize(row) : null

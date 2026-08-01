@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
+import { md5 } from '../helpers'
 import { JobStatus, QueueService } from '../queue'
 import { SgfAnalyzeJob } from './jobs/sgf-analyze.job'
 import { SgfAnalyzeResultRepository } from './sgf-analyze-result.repository'
@@ -28,6 +30,15 @@ export class KatagoService {
       throw new BadRequestException('sgf is required')
     }
 
+    const sgfMd5 = md5(normalized)
+    const existing = await this.sgfAnalyzeResultRepository.findBySgfMd5(sgfMd5)
+    if (existing) {
+      throw new ConflictException({
+        message: 'Analyze for this sgf already exists',
+        jobId: existing.job_id,
+      })
+    }
+
     const job = await this.queueService.dispatch(SgfAnalyzeJob.name, {
       sgf: normalized,
     })
@@ -35,6 +46,7 @@ export class KatagoService {
     await this.sgfAnalyzeResultRepository.create({
       job_id: job.id,
       sgf: normalized,
+      sgf_md5: sgfMd5,
       analyze_result: null,
     })
 

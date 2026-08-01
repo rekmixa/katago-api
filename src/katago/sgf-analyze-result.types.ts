@@ -2,6 +2,7 @@ export interface SgfAnalyzeResult {
   id: number
   job_id: number
   sgf: string
+  sgf_md5: string
   analyze_result: Record<string, unknown> | null
   created_at: Date
   updated_at: Date
@@ -10,5 +11,6 @@ export interface SgfAnalyzeResult {
 export type SgfAnalyzeResultInsert = {
   job_id: number
   sgf: string
+  sgf_md5: string
   analyze_result?: Record<string, unknown> | null
 }
