@@ -162,10 +162,11 @@ Authorization: Bearer <API_TOKEN>
 
 1. `POST /api/analyze` (или batch) создаёт запись в `jobs` (`SgfAnalyzeJob`) и строку в `sgf_analyze_results`.
 2. Воркер крутится в **отдельном контейнере** `worker` (`yarn worker` / `WorkerModule`), API (`node`) только ставит джобы (`worker: false`).
+   - Образ API: лёгкий `docker/node/Dockerfile.api` (без KataGo/CUDA).
+   - Образ воркера: `docker/node/Dockerfile` (CUDA + KataGo).
 3. Воркер раз в секунду забирает следующий `pending` джоб (`FOR UPDATE SKIP LOCKED`).
 4. В одном воркер-процессе одновременно выполняется **не больше одного** джоба (GPU лучше не делить — один `worker`).
 5. При ошибке статус → `failed` (ретраев по сути нет: `triesCount = 1`).
-
 Логи воркера: `docker compose logs -f worker` (или `make logs` — `node` + `worker`).
 
 ### Что делает воркер

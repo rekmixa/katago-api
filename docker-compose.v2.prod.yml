@@ -5,7 +5,7 @@ services:
     container_name: ${PROJECT}_node
     build:
       context: .
-      dockerfile: docker/node/Dockerfile
+      dockerfile: docker/node/Dockerfile.api
     working_dir: /home/node/app
     logging:
       options:
@@ -18,7 +18,6 @@ services:
       - 3005
     volumes:
       - ./:/home/node/app
-      - ./docker/node/bootstrap.sh:/usr/local/bin/bootstrap.sh
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=web"
@@ -34,7 +33,6 @@ services:
     networks:
       - default
       - web
-    entrypoint: ['sh', '/usr/local/bin/bootstrap.sh']
     command: sh -c 'yarn && yarn start'
     restart: ${RESTART}
 
