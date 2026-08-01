@@ -38,3 +38,8 @@ docker-compose.override.yml
 yarn-error.log
 data
 NOTES.md
+
+# KataGo
+katago/models/
+katago/analysis_logs/
+/tmp/katago_analysis_logs/

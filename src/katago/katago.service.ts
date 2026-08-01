@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common'
 import { md5 } from '../helpers'
 import { JobStatus, QueueService } from '../queue'
+import {
+  AnalyzeRequestDto,
+  pickKatagoOptions,
+} from './analyze-request.dto'
 import { SgfAnalyzeJob } from './jobs/sgf-analyze.job'
 import { SgfAnalyzeResultRepository } from './sgf-analyze-result.repository'
 
@@ -24,8 +28,11 @@ export class KatagoService {
     private readonly sgfAnalyzeResultRepository: SgfAnalyzeResultRepository,
   ) {}
 
-  async startAnalyze(sgf: string): Promise<{ jobId: number }> {
-    const normalized = sgf.trim()
+  async startAnalyze(
+    body: AnalyzeRequestDto | Record<string, unknown>,
+  ): Promise<{ jobId: number }> {
+    const sgfRaw = typeof body.sgf === 'string' ? body.sgf : ''
+    const normalized = sgfRaw.trim()
     if (!normalized) {
       throw new BadRequestException('sgf is required')
     }
@@ -39,9 +46,13 @@ export class KatagoService {
       })
     }
 
-    const job = await this.queueService.dispatch(SgfAnalyzeJob.name, {
+    const options = pickKatagoOptions(body as Record<string, unknown>)
+    const payload = {
       sgf: normalized,
-    })
+      ...options,
+    }
+
+    const job = await this.queueService.dispatch(SgfAnalyzeJob.name, payload)
 
     await this.sgfAnalyzeResultRepository.create({
       job_id: job.id,
