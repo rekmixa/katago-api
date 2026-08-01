@@ -84,10 +84,19 @@ nnMaxBatchSize = 8
 
 ### API
 
+Все методы под `/api/*` требуют заголовок:
+
+```http
+Authorization: Bearer <API_TOKEN>
+```
+
+Токен задаётся в `.env` (`API_TOKEN`, см. `.env-dist`). Без токена или с неверным — `401`. Эндпоинт `/ping` без авторизации.
+
 **Поставить анализ в очередь**
 
 ```http
 POST /api/analyze
+Authorization: Bearer <API_TOKEN>
 Content-Type: application/json
 
 {
@@ -106,6 +115,7 @@ Content-Type: application/json
 
 ```http
 GET /api/analyze/:jobId
+Authorization: Bearer <API_TOKEN>
 ```
 
 Ответ:

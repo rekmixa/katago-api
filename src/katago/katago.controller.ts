@@ -1,8 +1,18 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common'
+import { ApiTokenGuard } from '../auth/api-token.guard'
 import { AnalyzeRequestDto } from './analyze-request.dto'
 import { KatagoService } from './katago.service'
 
 @Controller('api')
+@UseGuards(ApiTokenGuard)
 export class KatagoController {
   constructor(private readonly katagoService: KatagoService) {}
 

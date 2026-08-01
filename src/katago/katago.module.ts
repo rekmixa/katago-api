@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
+import { ApiTokenGuard } from '../auth/api-token.guard'
 import { DbModule } from '../db/db.module'
 import { KatagoClientService } from './katago-client.service'
 import { KatagoController } from './katago.controller'
@@ -12,6 +13,7 @@ import { SgfParserService } from './sgf-parser.service'
   imports: [ConfigModule, DbModule],
   controllers: [KatagoController],
   providers: [
+    ApiTokenGuard,
     SgfAnalyzeResultRepository,
     SgfParserService,
     KatagoClientService,
