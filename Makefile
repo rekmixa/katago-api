@@ -29,13 +29,13 @@ logs:
 cp-env:
 	@test -f .env || cp .env-dist .env
 
-docker compose-override:
+docker-compose-override:
 	@test -f docker compose.override.yml || echo "version: '3'" >> docker compose.override.yml
 
 mkdir-data:
 	@test -d data || mkdir data
 
-install: cp-env mkdir-data docker compose-override up
+install: cp-env mkdir-data docker-compose-override up
 
 migrate:
 	@docker compose exec node yarn knex migrate:up
