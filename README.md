@@ -71,12 +71,13 @@ docker-compose up -d
 `katago/analysis.cfg` настроен под NVIDIA L40S-4Q (4 GB VRAM):
 
 ```
-numAnalysisThreads = 4
-numSearchThreadsPerAnalysisThread = 4
-nnMaxBatchSize = 8
+maxVisits = 500
+numAnalysisThreads = 8
+numSearchThreadsPerAnalysisThread = 2
+nnMaxBatchSize = 16
 ```
 
-Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 4) и/или число потоков.
+Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 8) и/или число потоков.
 
 ## Как анализируются партии
 
@@ -157,7 +158,7 @@ Authorization: Bearer <API_TOKEN>
 | Правила | `japanese` |
 | Коми | `0` (если в SGF нет `KM`) |
 | `analyzeTurns` | стартовая позиция + после каждого хода (`0..N`) |
-| `maxVisits` | `100` из `katago/analysis.cfg` |
+| `maxVisits` | `500` из `katago/analysis.cfg` |
 
 ### Формат `analyzeResult.moves`
 
