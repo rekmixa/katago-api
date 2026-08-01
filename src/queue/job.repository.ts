@@ -90,6 +90,17 @@ export class JobRepository {
       })
   }
 
+  async markForRetry(id: number, error: string): Promise<void> {
+    await this.table()
+      .where('id', id)
+      .update({
+        status: JobStatus.Pending,
+        error,
+        started_at: null,
+        finished_at: null,
+      })
+  }
+
   async requeueRunning(): Promise<number> {
     return this.table()
       .where('status', JobStatus.Running)

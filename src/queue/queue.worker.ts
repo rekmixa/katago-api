@@ -51,8 +51,20 @@ export class QueueWorker implements OnModuleInit {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : String(error)
-        this.logger.error(`Job ${job.id} failed: ${message}`)
-        await this.jobRepository.markFailed(job.id, message)
+        const triesCount = queueable.triesCount ?? 1
+        const maxAttempts = Math.max(1, triesCount)
+
+        if (job.attempts < maxAttempts) {
+          this.logger.warn(
+            `Job ${job.id} failed (attempt ${job.attempts}/${maxAttempts}), retrying: ${message}`,
+          )
+          await this.jobRepository.markForRetry(job.id, message)
+        } else {
+          this.logger.error(
+            `Job ${job.id} failed after ${job.attempts} attempt(s): ${message}`,
+          )
+          await this.jobRepository.markFailed(job.id, message)
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

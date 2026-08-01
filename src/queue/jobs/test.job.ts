@@ -3,6 +3,7 @@ import { Queueable } from '../queueable.interface'
 
 @Injectable()
 export class TestJob implements Queueable {
+  readonly triesCount: number = 3
   readonly name = 'TestJob'
 
   private readonly logger = new Logger(TestJob.name)
@@ -10,5 +11,7 @@ export class TestJob implements Queueable {
   handle(payload: Record<string, unknown>): void {
     this.logger.log('Hello, World!')
     this.logger.log(payload)
+
+    // throw new Error('test')
   }
 }
