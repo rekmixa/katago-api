@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { ScheduleModule } from '@nestjs/schedule'
 import { AppController } from './app.controller'
 import { DbModule } from './db/db.module'
+import { KatagoModule, SgfAnalyzeJob } from './katago'
 import { QueueModule } from './queue'
 import { TasksModule } from './tasks/tasks.module'
 
@@ -11,7 +12,8 @@ import { TasksModule } from './tasks/tasks.module'
     ConfigModule.forRoot(),
     ScheduleModule.forRoot(),
     DbModule,
-    QueueModule.register([]),
+    KatagoModule,
+    QueueModule.register([SgfAnalyzeJob], { imports: [KatagoModule] }),
     TasksModule,
   ],
   controllers: [AppController],

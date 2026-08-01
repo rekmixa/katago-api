@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { Job } from '../job.types'
 import { Queueable } from '../queueable.interface'
 
 @Injectable()
@@ -8,9 +9,9 @@ export class TestJob implements Queueable {
 
   private readonly logger = new Logger(TestJob.name)
 
-  handle(payload: Record<string, unknown>): void {
+  handle(job: Job): void {
     this.logger.log('Hello, World!')
-    this.logger.log(payload)
+    this.logger.log(job.payload)
 
     // throw new Error('test')
   }

@@ -45,7 +45,7 @@ export class QueueWorker implements OnModuleInit {
       this.logger.log(`Running job ${job.id} (${job.queueable_class})`)
 
       try {
-        await queueable.handle(job.payload)
+        await queueable.handle(job)
         await this.jobRepository.markDone(job.id)
         this.logger.log(`Job ${job.id} done`)
       } catch (error) {

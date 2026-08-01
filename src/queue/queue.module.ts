@@ -11,6 +11,8 @@ import { QueueWorker } from './queue.worker'
 export type QueueModuleOptions = {
   /** Воркер с cron. Для CLI обычно false. Default: true */
   worker?: boolean
+  /** Доп. импорты для зависимостей queueable-классов */
+  imports?: DynamicModule['imports']
 }
 
 @Module({})
@@ -23,8 +25,9 @@ export class QueueModule {
     const enableWorker = options.worker !== false
 
     return {
+      global: true,
       module: QueueModule,
-      imports: [DbModule],
+      imports: [DbModule, ...(options.imports ?? [])],
       providers: [
         ...allQueueables,
         {

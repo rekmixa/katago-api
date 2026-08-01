@@ -1,0 +1,63 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
+import { JobStatus, QueueService } from '../queue'
+import { SgfAnalyzeJob } from './jobs/sgf-analyze.job'
+import { SgfAnalyzeResultRepository } from './sgf-analyze-result.repository'
+
+export type AnalyzeStatusResponse = {
+  jobId: number
+  status: JobStatus
+  sgf: string
+  analyzeResult: Record<string, unknown> | null
+  error: string | null
+}
+
+@Injectable()
+export class KatagoService {
+  constructor(
+    private readonly queueService: QueueService,
+    private readonly sgfAnalyzeResultRepository: SgfAnalyzeResultRepository,
+  ) {}
+
+  async startAnalyze(sgf: string): Promise<{ jobId: number }> {
+    const normalized = sgf.trim()
+    if (!normalized) {
+      throw new BadRequestException('sgf is required')
+    }
+
+    const job = await this.queueService.dispatch(SgfAnalyzeJob.name, {
+      sgf: normalized,
+    })
+
+    await this.sgfAnalyzeResultRepository.create({
+      job_id: job.id,
+      sgf: normalized,
+      analyze_result: null,
+    })
+
+    return { jobId: job.id }
+  }
+
+  async getAnalyzeByJobId(jobId: number): Promise<AnalyzeStatusResponse> {
+    const job = await this.queueService.findById(jobId)
+    if (!job) {
+      throw new NotFoundException(`Job ${jobId} not found`)
+    }
+
+    const result = await this.sgfAnalyzeResultRepository.findByJobId(jobId)
+    if (!result) {
+      throw new NotFoundException(`Analyze result for job ${jobId} not found`)
+    }
+
+    return {
+      jobId: job.id,
+      status: job.status,
+      sgf: result.sgf,
+      analyzeResult: result.analyze_result,
+      error: job.error,
+    }
+  }
+}

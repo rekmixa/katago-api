@@ -1,3 +1,5 @@
+import { Job } from './job.types'
+
 export interface Queueable {
   /** Имя, которое пишется в jobs.queueable_class */
   readonly name: string
@@ -8,5 +10,5 @@ export interface Queueable {
    */
   readonly triesCount?: number
 
-  handle(payload: Record<string, unknown> | null): Promise<void> | void
+  handle(job: Job): Promise<void> | void
 }
