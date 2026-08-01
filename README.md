@@ -78,6 +78,91 @@ nnMaxBatchSize = 8
 
 Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 4) и/или число потоков.
 
+## Как анализируются партии
+
+Пайплайн: **SGF → очередь → KataGo Analysis Engine → JSON в БД**.
+
+### API
+
+**Поставить анализ в очередь**
+
+```http
+POST /api/analyze
+Content-Type: application/json
+
+{
+  "sgf": "(;FF[4]GM[1]SZ[19]KM[6.5]RU[Japanese];B[pd];W[dp];...)",
+  "maxVisits": 100
+}
+```
+
+- Обязательное поле: `sgf`.
+- Опционально можно передать параметры KataGo Analysis Engine (`maxVisits`, `analyzeTurns`, `rules`, `komi`, `includeOwnership`, `includePolicy`, …) — они уходят в payload джобы и в запрос к KataGo.
+- Успех: `{ "jobId": 123 }`.
+- Пустой `sgf` → `400`.
+- Такой же SGF уже анализировался → `409` и `jobId` существующего результата (новый джоб не создаётся). Дубликат определяется по **MD5** от `trim(sgf)`.
+
+**Получить статус / результат**
+
+```http
+GET /api/analyze/:jobId
+```
+
+Ответ:
+
+```json
+{
+  "jobId": 123,
+  "status": "pending | running | done | failed",
+  "sgf": "...",
+  "analyzeResult": { "moves": [ ... ], "meta": { ... } },
+  "error": null
+}
+```
+
+Пока джоб в очереди или выполняется, `analyzeResult` может быть `null`.
+
+### Очередь
+
+1. `POST /api/analyze` создаёт запись в `jobs` (`SgfAnalyzeJob`) и строку в `sgf_analyze_results`.
+2. Воркер раз в секунду забирает следующий `pending` джоб (`FOR UPDATE SKIP LOCKED`).
+3. В одном процессе одновременно выполняется **не больше одного** джоба.
+4. При ошибке статус → `failed` (ретраев по сути нет: `triesCount = 1`).
+
+### Что делает воркер
+
+1. Парсит SGF (`@sabaki/sgf`, только главная линия): размер доски, правила, коми, начальные камни, ходы в GTP.
+2. Собирает JSON-запрос для KataGo (`moves`, `boardXSize`/`boardYSize`, `rules`, `komi`, `analyzeTurns`, …).
+3. Шлёт его в долгоживущий процесс  
+   `katago analysis -config … -model …`  
+   по протоколу **JSONL** (stdin/stdout).
+4. Ждёт ответы по всем `analyzeTurns` (таймаут по умолчанию ~30 мин: `KATAGO_QUERY_TIMEOUT_MS`).
+5. Маппит ответ в удобный JSON и пишет в `sgf_analyze_results.analyze_result`.
+
+### Дефолты из SGF / конфига
+
+| Параметр | Если не задано |
+|---|---|
+| Размер доски | `19×19` |
+| Правила | `japanese` |
+| Коми | `0` (если в SGF нет `KM`) |
+| `analyzeTurns` | стартовая позиция + после каждого хода (`0..N`) |
+| `maxVisits` | `100` из `katago/analysis.cfg` |
+
+### Формат `analyzeResult.moves`
+
+Для каждого сыгранного хода:
+
+- `winrate`, `scoreLead` — оценка позиции **после** хода (с точки зрения чёрных, см. `reportAnalysisWinratesAs = BLACK` в конфиге);
+- `leader` — `B` / `W` / `even` по `scoreLead`;
+- `alternatives` — до 10 альтернатив **до** хода (`coord`, `winrate`, `scoreLead`, `visits`, `prior`, `pv`, …).
+
+Ход 0 (пустая/стартовая позиция) анализируется KataGo, но в массив `moves` не попадает.
+
+### Хранение
+
+Таблица `sgf_analyze_results`: `job_id`, исходный `sgf`, уникальный `sgf_md5`, `analyze_result` (jsonb).
+
 ## Сборка
 
 ### Production
