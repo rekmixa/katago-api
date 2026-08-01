@@ -13,7 +13,10 @@ import { TasksModule } from './tasks/tasks.module'
     ScheduleModule.forRoot(),
     DbModule,
     KatagoModule,
-    QueueModule.register([SgfAnalyzeJob], { imports: [KatagoModule] }),
+    QueueModule.register([SgfAnalyzeJob], {
+      worker: false,
+      imports: [KatagoModule],
+    }),
     TasksModule,
   ],
   controllers: [AppController],

@@ -24,7 +24,7 @@ restart:
 	@docker compose restart
 
 logs:
-	@docker compose logs -f --tail=1000 node
+	@docker compose logs -f --tail=1000 node worker
 
 cp-env:
 	@test -f .env || cp .env-dist .env
