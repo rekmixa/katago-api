@@ -1,4 +1,6 @@
 import { Command, CommandRunner, Option } from 'nest-commander'
+import { QueueService } from '../../queue'
+import { TestJob } from '../../queue/jobs/test.job'
 
 interface TestCommandOptions {
   test: string
@@ -7,6 +9,10 @@ interface TestCommandOptions {
 
 @Command({ name: 'test:test', description: 'Test command' })
 export class TestCommand extends CommandRunner {
+  constructor(private readonly queueService: QueueService) {
+    super()
+  }
+
   async run(
     passedParam: string[],
     options: TestCommandOptions,
@@ -14,6 +20,9 @@ export class TestCommand extends CommandRunner {
     console.log('test')
     console.log(passedParam)
     console.log(options)
+
+    const job = await this.queueService.dispatch(TestJob.name, { ...options })
+    console.log(`Dispatched job: ${job.id}`)
   }
 
   @Option({
