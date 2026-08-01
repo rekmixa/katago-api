@@ -13,16 +13,15 @@ export class TestCommand extends CommandRunner {
     super()
   }
 
-  async run(
-    passedParam: string[],
-    options: TestCommandOptions,
-  ): Promise<void> {
+  async run(passedParam: string[], options: TestCommandOptions): Promise<void> {
     console.log('test')
     console.log(passedParam)
     console.log(options)
 
-    const job = await this.queueService.dispatch(TestJob.name, { ...options })
-    console.log(`Dispatched job: ${job.id}`)
+    for (let i = 0; i < 10; i++) {
+      const job = await this.queueService.dispatch(TestJob.name, { ...options })
+      console.log(`Dispatched job: ${job.id}`)
+    }
   }
 
   @Option({
