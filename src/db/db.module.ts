@@ -13,6 +13,7 @@ import { UserRepository } from './repositories/user.repository'
     UserRepository,
   ],
   exports: [
+    KnexModule,
     UserRepository,
   ],
 })
