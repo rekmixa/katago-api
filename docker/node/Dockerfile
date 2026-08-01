@@ -34,4 +34,4 @@ RUN mkdir -p /opt/katago \
 ENV KATAGO_BIN=/opt/katago/katago
 ENV KATAGO_CONFIG=/home/node/app/katago/analysis.cfg
 ENV KATAGO_MODEL=/home/node/app/katago/models/default.bin.gz
-ENV KATAGO_MODEL_URL=https://media.katagotraining.org/uploaded/networks/models/g170/g170e-b20c256x2-s5303129600-d1228401921.bin.gz
+ENV KATAGO_MODEL_URL=https://github.com/lightvector/KataGo/releases/download/v1.4.5/g170e-b20c256x2-s5303129600-d1228401921.bin.gz
