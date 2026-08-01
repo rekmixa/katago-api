@@ -24,10 +24,31 @@ export type AnalyzeStatusResponse = {
   error: string | null
 }
 
+export enum AnalyzeBatchItemResultStatus {
+  Queued = 'queued',
+  Exists = 'exists',
+  Error = 'error',
+}
+
 export type AnalyzeBatchItemResult =
-  | { index: number; sgfMd5: string; status: 'queued'; jobId: number }
-  | { index: number; sgfMd5: string; status: 'exists'; jobId: number }
-  | { index: number; sgfMd5: string | null; status: 'error'; error: string }
+  | {
+      index: number
+      sgfMd5: string
+      status: AnalyzeBatchItemResultStatus.Queued
+      jobId: number
+    }
+  | {
+      index: number
+      sgfMd5: string
+      status: AnalyzeBatchItemResultStatus.Exists
+      jobId: number
+    }
+  | {
+      index: number
+      sgfMd5: string | null
+      status: AnalyzeBatchItemResultStatus.Error
+      error: string
+    }
 
 @Injectable()
 export class KatagoService {
@@ -72,8 +93,9 @@ export class KatagoService {
     const options = pickKatagoOptions(body as Record<string, unknown>)
 
     const md5List = body.sgfs.map(sgf => md5(sgf))
-    const existingRows =
-      await this.sgfAnalyzeResultRepository.findBySgfMd5In(md5List)
+    const existingRows = await this.sgfAnalyzeResultRepository.findBySgfMd5In(
+      md5List,
+    )
     const existingByMd5 = new Map(
       existingRows.map(row => [row.sgf_md5, row.job_id]),
     )
@@ -82,7 +104,7 @@ export class KatagoService {
     const queuedInBatch = new Map<string, number>()
 
     for (let index = 0; index < body.sgfs.length; index++) {
-      const normalized = body.sgfs[index]
+      const sgf = body.sgfs[index]
       const sgfMd5 = md5List[index]
       const existingJobId =
         existingByMd5.get(sgfMd5) ?? queuedInBatch.get(sgfMd5)
@@ -91,7 +113,7 @@ export class KatagoService {
         results.push({
           index,
           sgfMd5,
-          status: 'exists',
+          status: AnalyzeBatchItemResultStatus.Exists,
           jobId: existingJobId,
         })
         continue
@@ -99,7 +121,7 @@ export class KatagoService {
 
       try {
         const enqueued = await this.createAnalyzeJob(
-          normalized,
+          sgf,
           sgfMd5,
           options,
         )
@@ -108,13 +130,18 @@ export class KatagoService {
         results.push({
           index,
           sgfMd5,
-          status: 'queued',
+          status: AnalyzeBatchItemResultStatus.Queued,
           jobId: enqueued.jobId,
         })
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to enqueue sgf'
-        results.push({ index, sgfMd5, status: 'error', error: message })
+        results.push({
+          index,
+          sgfMd5,
+          status: AnalyzeBatchItemResultStatus.Error,
+          error: message,
+        })
       }
     }
 
@@ -155,12 +182,12 @@ export class KatagoService {
   }
 
   private async createAnalyzeJob(
-    normalized: string,
+    sgf: string,
     sgfMd5: string,
     options: KatagoAnalyzeOptions,
   ): Promise<{ status: 'queued'; jobId: number }> {
     const payload = {
-      sgf: normalized,
+      sgf,
       ...options,
     }
 
@@ -168,7 +195,7 @@ export class KatagoService {
 
     await this.sgfAnalyzeResultRepository.create({
       job_id: job.id,
-      sgf: normalized,
+      sgf,
       sgf_md5: sgfMd5,
       analyze_result: null,
     })
