@@ -26,12 +26,34 @@ services:
       - ./docker/node/bootstrap.sh:/usr/local/bin/bootstrap.sh
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=web"
       - "traefik.http.routers.${PROJECT}-backend.rule=Host(`${DOCKER_DOMAIN}`)"
+      - "traefik.http.routers.${PROJECT}-backend.entrypoints=web"
+      - "traefik.http.routers.${PROJECT}-backend.service=${PROJECT}-backend"
+      - "traefik.http.services.${PROJECT}-backend.loadbalancer.server.port=3005"
     networks:
       - default
       - web
     entrypoint: ['sh', '/usr/local/bin/bootstrap.sh']
     command: sh -c 'yarn && yarn dev'
+    restart: ${RESTART}
+
+  storage:
+    container_name: ${PROJECT}_storage
+    image: nginx:stable-alpine
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      - "traefik.http.routers.${PROJECT}-storage.rule=Host(`storage.${DOCKER_DOMAIN}`)"
+      - "traefik.http.routers.${PROJECT}-storage.entrypoints=web"
+      - "traefik.http.routers.${PROJECT}-storage.service=${PROJECT}-storage"
+      - "traefik.http.services.${PROJECT}-storage.loadbalancer.server.port=80"
+    networks:
+      - default
+      - web
+    volumes:
+      - ./storage/kifu:/usr/share/nginx/html/kifu:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: ${RESTART}
 
   db:
@@ -45,17 +67,6 @@ services:
       - 127.0.0.1:${DOCKER_DB_PORT}:5432
     volumes:
       - db_data:/var/lib/postgresql/data
-    restart: ${RESTART}
-
-  adminer:
-    container_name: ${PROJECT}_adminer
-    image: adminer
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.${PROJECT}-adminer.rule=Host(`adminer.${DOCKER_DOMAIN}`)"
-    networks:
-      - default
-      - web
     restart: ${RESTART}
 
 volumes:

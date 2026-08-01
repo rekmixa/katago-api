@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
 import { DbModule } from '../db/db.module'
 import { KatagoClientService } from './katago-client.service'
 import { KatagoController } from './katago.controller'
@@ -8,7 +9,7 @@ import { SgfAnalyzeResultRepository } from './sgf-analyze-result.repository'
 import { SgfParserService } from './sgf-parser.service'
 
 @Module({
-  imports: [DbModule],
+  imports: [ConfigModule, DbModule],
   controllers: [KatagoController],
   providers: [
     SgfAnalyzeResultRepository,

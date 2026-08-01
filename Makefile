@@ -6,42 +6,42 @@ git-pull:
 	@git pull
 
 env:
-	@docker-compose run --rm node bash
+	@docker compose run --rm node bash
 
 up:
-	@docker-compose up -d --remove-orphans --force-recreate --build
+	@docker compose up -d --remove-orphans --force-recreate --build
 
 down:
-	@docker-compoes down
+	@docker compose down
 
 down-v:
-	@docker-compose down -v
+	@docker compose down -v
 
 stop:
-	@docker-compose stop
+	@docker compose stop
 
 restart:
-	@docker-compose restart
+	@docker compose restart
 
 logs:
-	@docker-compose logs -f --tail=1000 node
+	@docker compose logs -f --tail=1000 node
 
 cp-env:
 	@test -f .env || cp .env-dist .env
 
-docker-compose-override:
-	@test -f docker-compose.override.yml || echo "version: '3'" >> docker-compose.override.yml
+docker compose-override:
+	@test -f docker compose.override.yml || echo "version: '3'" >> docker compose.override.yml
 
 mkdir-data:
 	@test -d data || mkdir data
 
-install: cp-env mkdir-data docker-compose-override up
+install: cp-env mkdir-data docker compose-override up
 
 migrate:
-	@docker-compose exec node yarn knex migrate:up
+	@docker compose exec node yarn knex migrate:up
 
 seed:
-	@docker-compose exec node yarn knex seed:run
+	@docker compose exec node yarn knex seed:run
 
 rm-git:
 	@rm -rf .git

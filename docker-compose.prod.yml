@@ -61,17 +61,6 @@ services:
       - db_data:/var/lib/postgresql/data
     restart: ${RESTART}
 
-  adminer:
-    container_name: ${PROJECT}_adminer
-    image: adminer
-    labels:
-      traefik.enable: 'true'
-      traefik.frontend.rule: 'Host: adminer.${DOCKER_DOMAIN}'
-    networks:
-      - default
-      - web
-    restart: ${RESTART}
-
 volumes:
   db_data:
 
