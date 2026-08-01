@@ -13,10 +13,10 @@ export class TasksService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async getTgUsers(): Promise<void> {
-    const users = await this.userRepository.findAll()
+    // const users = await this.userRepository.findAll()
 
-    for (const user of users) {
-      this.logger.debug(`user: ${user.id}`)
-    }
+    // for (const user of users) {
+    //   this.logger.debug(`user: ${user.id}`)
+    // }
   }
 }
