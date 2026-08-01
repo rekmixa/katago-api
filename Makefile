@@ -30,7 +30,7 @@ cp-env:
 	@test -f .env || cp .env-dist .env
 
 docker-compose-override:
-	@test -f docker compose.override.yml || echo "version: '3'" >> docker compose.override.yml
+	@test -f docker-compose.override.yml || echo "version: '3'" >> docker-compose.override.yml
 
 mkdir-data:
 	@test -d data || mkdir data
