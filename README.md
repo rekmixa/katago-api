@@ -43,6 +43,7 @@ make logs-telegram
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=-100...   # id канала, бот — админ
 TELEGRAM_ADMIN_IDS=123456789,987654321
+TELEGRAM_API_URL=https://api.telegram.org   # или URL reverse-proxy к Bot API
 ```
 
 ```bash

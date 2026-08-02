@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Cron, CronExpression } from '@nestjs/schedule'
+import * as http from 'http'
 import * as https from 'https'
 import { TelegramReportService } from './telegram-report.service'
 
@@ -23,6 +24,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   private readonly token: string
   private readonly chatId: string
   private readonly adminIds: Set<string>
+  private readonly apiBaseUrl: string
   private offset = 0
   private running = false
   private pollPromise: Promise<void> | null = null
@@ -34,6 +36,9 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     this.token = String(this.config.get('TELEGRAM_BOT_TOKEN') || '')
     this.chatId = String(this.config.get('TELEGRAM_CHAT_ID') || '')
     this.adminIds = this.parseAdminIds(this.config.get('TELEGRAM_ADMIN_IDS'))
+    this.apiBaseUrl = String(
+      this.config.get('TELEGRAM_API_URL') || 'https://api.telegram.org',
+    ).replace(/\/+$/, '')
   }
 
   onModuleInit(): void {
@@ -46,7 +51,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
     this.running = true
     this.pollPromise = this.pollLoop()
-    this.logger.log('Telegram bot polling started')
+    this.logger.log(`Telegram bot polling started (api=${this.apiBaseUrl})`)
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -151,15 +156,20 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 
+  private apiUrl(method: string, query = ''): string {
+    return `${this.apiBaseUrl}/bot${this.token}/${method}${query}`
+  }
+
   private async getUpdates(
     offset: number,
     timeoutSec: number,
   ): Promise<TgUpdate[]> {
-    const url =
-      `https://api.telegram.org/bot${this.token}/getUpdates` +
+    const url = this.apiUrl(
+      'getUpdates',
       `?offset=${offset}&timeout=${timeoutSec}&allowed_updates=${encodeURIComponent(
         '["message"]',
-      )}`
+      )}`,
+    )
     const data = await this.httpJson(url)
     if (!data.ok) {
       throw new Error(`getUpdates failed: ${JSON.stringify(data)}`)
@@ -168,8 +178,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async sendMessage(chatId: string, text: string): Promise<void> {
-    const url = `https://api.telegram.org/bot${this.token}/sendMessage`
-    const data = await this.httpJson(url, {
+    const data = await this.httpJson(this.apiUrl('sendMessage'), {
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
@@ -185,11 +194,13 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   ): Promise<{ ok: boolean; result?: unknown }> {
     const payload = body ? JSON.stringify(body) : undefined
     const u = new URL(url)
+    const transport = u.protocol === 'http:' ? http : https
 
     return new Promise((resolve, reject) => {
-      const req = https.request(
+      const req = transport.request(
         {
           hostname: u.hostname,
+          port: u.port || undefined,
           path: u.pathname + u.search,
           method: payload ? 'POST' : 'GET',
           headers: payload

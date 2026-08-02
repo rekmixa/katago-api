@@ -43,6 +43,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
       TELEGRAM_ADMIN_IDS: ${TELEGRAM_ADMIN_IDS}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
     volumes:
       - ./:/home/node/app
     networks:

@@ -5,7 +5,7 @@
 ## [1.2.0] - 2026-08-02
 
 ### Added
-- Telegram bot container (`yarn telegram`): hourly queue report to channel; `/start` (public chatId), `/ping` + `/sendReport` for `TELEGRAM_ADMIN_IDS`; env `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_ADMIN_IDS`
+- Telegram bot container (`yarn telegram`): hourly queue report to channel; `/start` (public chatId), `/ping` + `/sendReport` for `TELEGRAM_ADMIN_IDS`; env `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_ADMIN_IDS`, `TELEGRAM_API_URL`
 
 ### Changed
 - Worker image: KataGo **TensorRT** (`trt10.2.0-cuda12.5`) instead of CUDA/cuDNN binary; base `nvidia/cuda:12.5.1-runtime` + pinned `libnvinfer10` 10.2.0
