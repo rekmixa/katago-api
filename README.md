@@ -28,6 +28,8 @@ make seed
 
 ```bash
 make logs
+make logs-node
+make logs-worker
 ```
 
 ## GPU (NVIDIA) на новом сервере
