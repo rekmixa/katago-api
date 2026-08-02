@@ -297,12 +297,16 @@ from jobs
 group by status;
 
 -- вывести завершенные джобы
-SELECT
-    id,
-    started_at,
-    finished_at,
-    EXTRACT(EPOCH FROM (finished_at - started_at)) AS duration_sec
-FROM jobs
-WHERE finished_at IS NOT NULL
-ORDER BY finished_at DESC;
+SELECT j.id,
+       j.status,
+       j.started_at,
+       j.finished_at,
+       EXTRACT(EPOCH FROM (j.finished_at - j.started_at)) AS duration_sec,
+       j.error,
+       (s.analyze_result -> 'meta' ->> 'movesCount')::int AS "movesCount"
+FROM jobs j
+         left join sgf_analyze_results s on j.id = s.job_id
+WHERE j.finished_at IS NOT NULL
+ORDER BY j.finished_at DESC;
+
 ```
