@@ -60,27 +60,31 @@ sudo systemctl restart docker
 Проверка доступа к GPU из Docker:
 
 ```bash
-docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.5.1-base-ubuntu22.04 nvidia-smi
 ```
 
-Затем подними проект:
+Затем подними проект (воркер — **TensorRT** KataGo `trt10.2.0` + CUDA 12.5):
 
 ```bash
-docker-compose build --no-cache node
-docker-compose up -d
+docker compose build --no-cache worker
+docker compose up -d
 ```
 
-`katago/analysis.cfg` настроен под NVIDIA L40S-4Q (4 GB VRAM):
+Первый старт KataGo с TensorRT может занять **несколько минут** (сборка timing cache). Кэш пишется в `katago/data/` (в gitignore) и переживает рестарты. Дождись в логах `ready to begin handling requests` (`KATAGO_READY_TIMEOUT_MS`, по умолчанию 10 мин).
+
+`katago/analysis.cfg` ориентир под L4 24 GB + TensorRT:
 
 ```
 maxVisits = 500
-numAnalysisThreads = 24
+numAnalysisThreads = 32
 numSearchThreadsPerAnalysisThread = 1
-nnMaxBatchSize = 24
-nnCacheSizePowerOfTwo = 20
+nnMaxBatchSize = 32
+nnCacheSizePowerOfTwo = 21
+trtDeviceToUse = 0
+homeDataDir = /home/node/app/katago/data
 ```
 
-Если возвращается swap / CUDA OOM — уменьши `numAnalysisThreads` и `nnMaxBatchSize` вместе (ступенями 24 → 16 → 12).
+Если OOM / нет выигрыша — крути `numAnalysisThreads` и `nnMaxBatchSize` вместе (32 → 24 → 16). После смены backend снова прогони `./bench-katago.sh`.
 
 ## Как анализируются партии
 
@@ -167,7 +171,7 @@ Authorization: Bearer <API_TOKEN>
 1. `POST /api/analyze` (или batch) создаёт запись в `jobs` (`SgfAnalyzeJob`) и строку в `sgf_analyze_results`.
 2. Воркер крутится в **отдельном контейнере** `worker` (`yarn worker` / `WorkerModule`), API (`node`) только ставит джобы (`worker: false`).
    - Образ API: лёгкий `docker/node/Dockerfile.api` (без KataGo/CUDA).
-   - Образ воркера: `docker/node/Dockerfile` (CUDA + KataGo).
+   - Образ воркера: `docker/node/Dockerfile` (CUDA 12.5 + TensorRT 10.2 + KataGo TRT).
 3. Воркер раз в секунду забирает следующий `pending` джоб (`FOR UPDATE SKIP LOCKED`).
 4. В одном воркер-процессе одновременно выполняется **не больше одного** джоба (GPU лучше не делить — один `worker`).
 5. При ошибке статус → `failed` (ретраев по сути нет: `triesCount = 1`).

@@ -43,5 +43,6 @@ NOTES.md
 
 # KataGo
 katago/models/
+katago/data/
 katago/analysis_logs/
 /tmp/katago_analysis_logs/

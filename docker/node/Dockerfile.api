@@ -1,6 +1,6 @@
 FROM node:22.13.1-bookworm-slim
 
-# API-only image: no KataGo / CUDA (worker uses docker/node/Dockerfile)
+# API-only image: no KataGo / GPU (worker uses docker/node/Dockerfile + TensorRT)
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
