@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-} from '@nestjs/common'
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
 import { createInterface, Interface } from 'readline'
@@ -17,6 +13,7 @@ type PendingQuery = {
 }
 
 const READY_MARKER = 'ready to begin handling requests'
+const STDERR_LOG_EVERY_MS = 5_000
 
 @Injectable()
 export class KatagoClientService implements OnModuleDestroy {
@@ -26,13 +23,14 @@ export class KatagoClientService implements OnModuleDestroy {
   private starting: Promise<void> | null = null
   private stopping: Promise<void> | null = null
   private idleStopTimer: NodeJS.Timeout | null = null
+  private lastStderrLogAt = 0
   private readonly pending = new Map<string, PendingQuery>()
 
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleDestroy(): Promise<void> {
     this.clearIdleStop()
-    await this.stop()
+    await this.stop(true)
   }
 
   async analyze(
@@ -75,6 +73,12 @@ export class KatagoClientService implements OnModuleDestroy {
 
       const timer = setTimeout(() => {
         this.pending.delete(query.id)
+        // KataGo keeps burning CPU after a hung query; kill immediately
+        // or the 2-core host freezes and the queue cron cannot run.
+        this.logger.error(
+          `KataGo query ${query.id} timed out after ${timeoutMs}ms — SIGKILL`,
+        )
+        this.forceKill()
         reject(
           new Error(`KataGo query ${query.id} timed out after ${timeoutMs}ms`),
         )
@@ -151,13 +155,21 @@ export class KatagoClientService implements OnModuleDestroy {
   }
 
   private onStderr(chunk: Buffer): void {
+    const now = Date.now()
+    if (now - this.lastStderrLogAt < STDERR_LOG_EVERY_MS) {
+      return
+    }
+    this.lastStderrLogAt = now
     const text = chunk.toString().trim()
     if (text) {
-      this.logger.warn(`KataGo stderr: ${text}`)
+      this.logger.warn(`KataGo stderr: ${text.slice(0, 500)}`)
     }
   }
 
-  private onProcessExit(code: number | null, signal: NodeJS.Signals | null): void {
+  private onProcessExit(
+    code: number | null,
+    signal: NodeJS.Signals | null,
+  ): void {
     this.logger.warn(`KataGo exited (code=${code}, signal=${signal})`)
     this.clearIdleStop()
     this.process = null
@@ -247,7 +259,10 @@ export class KatagoClientService implements OnModuleDestroy {
       return
     }
 
-    if (typeof message.id !== 'string' || typeof message.turnNumber !== 'number') {
+    if (
+      typeof message.id !== 'string' ||
+      typeof message.turnNumber !== 'number'
+    ) {
       return
     }
 
@@ -303,7 +318,7 @@ export class KatagoClientService implements OnModuleDestroy {
       this.logger.log(
         `KataGo idle for ${idleStopMs}ms — stopping process to free CPU/GPU`,
       )
-      void this.stop()
+      void this.stop(false)
     }, idleStopMs)
   }
 
@@ -315,7 +330,22 @@ export class KatagoClientService implements OnModuleDestroy {
     this.idleStopTimer = null
   }
 
-  private async stop(): Promise<void> {
+  /** Immediate kill — used on query timeout so the host does not freeze. */
+  private forceKill(): void {
+    this.clearIdleStop()
+    const child = this.process
+    if (!child) {
+      return
+    }
+    try {
+      child.kill('SIGKILL')
+    } catch (error) {
+      console.log('forceKill')
+      console.log(error)
+    }
+  }
+
+  private async stop(force: boolean): Promise<void> {
     this.clearIdleStop()
 
     if (this.stopping) {
@@ -331,29 +361,52 @@ export class KatagoClientService implements OnModuleDestroy {
     this.readline?.close()
     this.readline = null
 
-    this.stopping = this.terminate(child).finally(() => {
+    this.stopping = this.terminate(child, force).finally(() => {
       this.stopping = null
     })
     await this.stopping
   }
 
-  private terminate(child: ChildProcessWithoutNullStreams): Promise<void> {
+  private terminate(
+    child: ChildProcessWithoutNullStreams,
+    force: boolean,
+  ): Promise<void> {
     return new Promise(resolve => {
-      const force = setTimeout(() => {
-        this.logger.warn('KataGo did not exit after stdin close — SIGKILL')
-        child.kill('SIGKILL')
+      const forceDelayMs = force ? 500 : 2_000
+
+      const forceTimer = setTimeout(() => {
+        this.logger.warn('KataGo still alive — SIGKILL')
+        try {
+          child.kill('SIGKILL')
+        } catch (error) {
+          console.log(error)
+        }
         resolve()
-      }, 10_000)
+      }, forceDelayMs)
 
       child.once('exit', () => {
-        clearTimeout(force)
+        clearTimeout(forceTimer)
         resolve()
       })
+
+      if (force) {
+        try {
+          child.kill('SIGKILL')
+        } catch (error) {
+          console.log(error)
+          resolve()
+        }
+        return
+      }
 
       try {
         child.stdin.end()
       } catch {
-        child.kill('SIGKILL')
+        try {
+          child.kill('SIGKILL')
+        } catch (error) {
+          console.log(error)
+        }
       }
     })
   }
