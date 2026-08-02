@@ -283,6 +283,14 @@ yarn cli -- queue:requeue-failed --job-id 25572
 yarn cli -- queue:requeue-failed -j 25572
 ```
 
+Снять метрики GPU / RAM / swap / timings воркера (лучше во время активной джобы). Отчёт → `bench-logs/`:
+
+```bash
+chmod +x bench-katago.sh   # один раз
+./bench-katago.sh          # 20 замеров по 1с
+./bench-katago.sh 30 1     # 30 замеров по 1с
+```
+
 Локальный запуск storage:
 
 ```bash

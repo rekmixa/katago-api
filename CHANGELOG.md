@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-02
+
+### Added
+- `make db-dump` — Postgres dump via `pg_dump` into gitignored `db-backups/` (`DB_USER` / `DB_NAME` from `.env`)
+- `bench-katago.sh` — collect GPU/RAM/swap/`vmstat`/docker stats and recent worker timings into `bench-logs/`
+- README notes for the bench script
+
+### Changed
+- `analysis.cfg`: lower NN cache to reduce host RAM pressure (`nnCacheSizePowerOfTwo` 23 → 20)
+- `analysis.cfg`: prefer more parallel positions with one search thread (`numAnalysisThreads=24`, `numSearchThreadsPerAnalysisThread=1`, `nnMaxBatchSize=24`)
+
 ## [1.1.1] - 2026-08-02
 
 ### Added

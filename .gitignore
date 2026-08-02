@@ -38,6 +38,7 @@ docker-compose.override.yml
 yarn-error.log
 data
 db-backups/
+bench-logs/
 NOTES.md
 
 # KataGo
