@@ -273,3 +273,22 @@ yarn cli -- test:test -t test -sf
 ```bash
 http-server ./storage --cors=false
 ```
+
+## SQL
+
+```sql
+-- вывести текущую загруженность очереди
+select status, count(*)
+from jobs
+group by status;
+
+-- вывести завершенные джобы
+SELECT
+    id,
+    started_at,
+    finished_at,
+    EXTRACT(EPOCH FROM (finished_at - started_at)) AS duration_sec
+FROM jobs
+WHERE finished_at IS NOT NULL
+ORDER BY finished_at DESC;
+```
