@@ -32,10 +32,10 @@ logs:
 	@docker compose logs -f --tail=1000 node worker
 
 logs-node:
-	@docker compose logs -f --tail=1000 node worker
+	@docker compose logs -f --tail=1000 node
 
 logs-worker:
-	@docker compose logs -f node worker
+	@docker compose logs -f worker
 
 cp-env:
 	@test -f .env || cp .env-dist .env
