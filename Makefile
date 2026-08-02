@@ -37,6 +37,9 @@ logs-node:
 logs-worker:
 	@docker compose logs -f worker
 
+recreate-worker:
+	@docker compose up -d --force-recreate worker
+
 cp-env:
 	@test -f .env || cp .env-dist .env
 
