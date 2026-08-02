@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Telegram bot container (`yarn telegram`): hourly queue report to channel; commands `/ping`, `/sendReport`; env `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+
 ### Changed
 - Worker image: KataGo **TensorRT** (`trt10.2.0-cuda12.5`) instead of CUDA/cuDNN binary; base `nvidia/cuda:12.5.1-runtime` + pinned `libnvinfer10` 10.2.0
 - `analysis.cfg`: `homeDataDir` for TRT timing cache, `trtDeviceToUse=0`; threads/batch/cache for L4 (`32×1`, batch 32, cache 21)

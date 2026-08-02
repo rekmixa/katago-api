@@ -30,6 +30,22 @@ make seed
 make logs
 make logs-node
 make logs-worker
+make logs-telegram
+```
+
+## Telegram-бот (сводка очереди)
+
+Отдельный контейнер `telegram`: раз в час шлёт отчёт в канал, команды `/ping` и `/sendReport`.
+
+В `.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=-100...   # id канала, бот — админ
+```
+
+```bash
+docker compose up -d telegram
 ```
 
 ## GPU (NVIDIA) на новом сервере

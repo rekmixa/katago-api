@@ -29,13 +29,16 @@ restart:
 	@docker compose restart
 
 logs:
-	@docker compose logs -f --tail=1000 node worker
+	@docker compose logs -f --tail=1000 node worker telegram
 
 logs-node:
 	@docker compose logs -f --tail=1000 node
 
 logs-worker:
 	@docker compose logs -f worker
+
+logs-telegram:
+	@docker compose logs -f telegram
 
 recreate-worker:
 	@docker compose up -d --force-recreate worker

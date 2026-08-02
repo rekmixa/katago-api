@@ -29,6 +29,28 @@ services:
     command: sh -c 'yarn && yarn dev'
     restart: ${RESTART}
 
+  telegram:
+    container_name: ${PROJECT}_telegram
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile.api
+    working_dir: /home/node/app
+    logging:
+      options:
+        max-size: '10m'
+        max-file: '3'
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./:/home/node/app
+    networks:
+      - default
+    command: sh -c 'yarn && yarn telegram:dev'
+    restart: ${RESTART}
+    depends_on:
+      - db
+
   worker:
     container_name: ${PROJECT}_worker
     build:
