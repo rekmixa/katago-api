@@ -88,7 +88,7 @@ export class QueueWorker implements OnModuleInit {
             : Math.round((Date.now() - startedAtMs) / 1000)
         const durationPart =
           durationSec === null ? '' : `; duration=${durationSec}s`
-        this.logger.log(
+        this.logger.verbose(
           `Job ${jobId} finished with status=${outcome}${durationPart}; queue is idle and ready for next job`,
         )
       }
