@@ -9,11 +9,20 @@ import { Cron, CronExpression } from '@nestjs/schedule'
 import * as https from 'https'
 import { TelegramReportService } from './telegram-report.service'
 
+interface TgUpdate {
+  update_id: number
+  message?: {
+    chat: { id: number }
+    text?: string
+  }
+}
+
 @Injectable()
 export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TelegramBotService.name)
   private readonly token: string
   private readonly chatId: string
+  private readonly adminIds: Set<string>
   private offset = 0
   private running = false
   private pollPromise: Promise<void> | null = null
@@ -24,6 +33,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
   ) {
     this.token = String(this.config.get('TELEGRAM_BOT_TOKEN') || '')
     this.chatId = String(this.config.get('TELEGRAM_CHAT_ID') || '')
+    this.adminIds = this.parseAdminIds(this.config.get('TELEGRAM_ADMIN_IDS'))
   }
 
   onModuleInit(): void {
@@ -75,7 +85,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         }
       } catch (error) {
         this.logger.warn(`Polling error: ${error}`)
-        await sleep(3000)
+        await this.sleep(3000)
       }
     }
   }
@@ -86,22 +96,59 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       return
     }
 
-    const cmd = parseCommand(message.text)
+    const cmd = this.parseCommand(message.text)
     if (!cmd) {
       return
     }
 
+    const fromChatId = String(message.chat.id)
+
+    // /start is public — helps discover chatId for TELEGRAM_ADMIN_IDS
+    if (cmd === '/start') {
+      await this.sendMessage(fromChatId, fromChatId)
+      return
+    }
+
+    if (!this.isAdmin(fromChatId)) {
+      return
+    }
+
     if (cmd === '/ping') {
-      await this.sendMessage(String(message.chat.id), 'pong')
+      await this.sendMessage(fromChatId, 'pong')
       return
     }
 
     if (cmd === '/sendreport') {
       await this.sendReportToChannel()
-      if (String(message.chat.id) !== this.chatId) {
-        await this.sendMessage(String(message.chat.id), 'Report sent to channel')
+      if (fromChatId !== this.chatId) {
+        await this.sendMessage(fromChatId, 'Report sent to channel')
       }
     }
+  }
+
+  private isAdmin(chatId: string): boolean {
+    return this.adminIds.has(chatId)
+  }
+
+  private parseAdminIds(value: unknown): Set<string> {
+    return new Set(
+      String(value || '')
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean),
+    )
+  }
+
+  private parseCommand(text: string): string | null {
+    const first = text.trim().split(/\s+/)[0]
+    if (!first || !first.startsWith('/')) {
+      return null
+    }
+    return first.replace(/@\w+$/, '').toLowerCase()
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   private async getUpdates(
@@ -113,7 +160,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       `?offset=${offset}&timeout=${timeoutSec}&allowed_updates=${encodeURIComponent(
         '["message"]',
       )}`
-    const data = await httpJson(url)
+    const data = await this.httpJson(url)
     if (!data.ok) {
       throw new Error(`getUpdates failed: ${JSON.stringify(data)}`)
     }
@@ -122,7 +169,7 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
 
   private async sendMessage(chatId: string, text: string): Promise<void> {
     const url = `https://api.telegram.org/bot${this.token}/sendMessage`
-    const data = await httpJson(url, {
+    const data = await this.httpJson(url, {
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
@@ -131,64 +178,44 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       throw new Error(`sendMessage failed: ${JSON.stringify(data)}`)
     }
   }
-}
 
-interface TgUpdate {
-  update_id: number
-  message?: {
-    chat: { id: number }
-    text?: string
-  }
-}
+  private httpJson(
+    url: string,
+    body?: Record<string, unknown>,
+  ): Promise<{ ok: boolean; result?: unknown }> {
+    const payload = body ? JSON.stringify(body) : undefined
+    const u = new URL(url)
 
-function parseCommand(text: string): string | null {
-  const first = text.trim().split(/\s+/)[0]
-  if (!first || !first.startsWith('/')) {
-    return null
-  }
-  return first.replace(/@\w+$/, '').toLowerCase()
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-function httpJson(
-  url: string,
-  body?: Record<string, unknown>,
-): Promise<{ ok: boolean; result?: unknown }> {
-  const payload = body ? JSON.stringify(body) : undefined
-  const u = new URL(url)
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname: u.hostname,
-        path: u.pathname + u.search,
-        method: payload ? 'POST' : 'GET',
-        headers: payload
-          ? {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload),
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: u.hostname,
+          path: u.pathname + u.search,
+          method: payload ? 'POST' : 'GET',
+          headers: payload
+            ? {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+              }
+            : undefined,
+        },
+        res => {
+          const chunks: Buffer[] = []
+          res.on('data', chunk => chunks.push(chunk))
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+            } catch (error) {
+              reject(error)
             }
-          : undefined,
-      },
-      res => {
-        const chunks: Buffer[] = []
-        res.on('data', chunk => chunks.push(chunk))
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')))
-          } catch (error) {
-            reject(error)
-          }
-        })
-      },
-    )
-    req.on('error', reject)
-    if (payload) {
-      req.write(payload)
-    }
-    req.end()
-  })
+          })
+        },
+      )
+      req.on('error', reject)
+      if (payload) {
+        req.write(payload)
+      }
+      req.end()
+    })
+  }
 }

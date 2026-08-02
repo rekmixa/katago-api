@@ -35,13 +35,14 @@ make logs-telegram
 
 ## Telegram-бот (сводка очереди)
 
-Отдельный контейнер `telegram`: раз в час шлёт отчёт в канал, команды `/ping` и `/sendReport`.
+Отдельный контейнер `telegram`: раз в час шлёт отчёт в канал; команды `/ping` и `/sendReport` только для админов. `/start` доступен всем и отвечает твоим `chatId`.
 
 В `.env`:
 
 ```bash
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=-100...   # id канала, бот — админ
+TELEGRAM_ADMIN_IDS=123456789,987654321
 ```
 
 ```bash
