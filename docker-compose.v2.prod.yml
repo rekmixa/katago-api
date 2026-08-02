@@ -104,6 +104,7 @@ services:
       - 127.0.0.1:${DOCKER_DB_PORT}:5432
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./docker/db/initdb.d:/docker-entrypoint-initdb.d:ro
     restart: ${RESTART}
 
 volumes:
