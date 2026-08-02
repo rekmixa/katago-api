@@ -27,6 +27,8 @@ export class QueueWorker implements OnModuleInit {
     }
 
     this.busy = true
+    let jobId: number | null = null
+    let outcome: 'done' | 'failed' | 'retry' | 'error' | null = null
 
     try {
       const job = await this.jobRepository.claimNextPending()
@@ -34,11 +36,14 @@ export class QueueWorker implements OnModuleInit {
         return
       }
 
+      jobId = job.id
+
       const queueable = this.registry.get(job.queueable_class)
       if (!queueable) {
         const message = `Unknown queueable class: ${job.queueable_class}`
         this.logger.error(message)
         await this.jobRepository.markFailed(job.id, message)
+        outcome = 'failed'
         return
       }
 
@@ -47,7 +52,7 @@ export class QueueWorker implements OnModuleInit {
       try {
         await queueable.handle(job)
         await this.jobRepository.markDone(job.id)
-        this.logger.log(`Job ${job.id} done`)
+        outcome = 'done'
       } catch (error) {
         const message =
           error instanceof Error ? error.message : String(error)
@@ -59,18 +64,26 @@ export class QueueWorker implements OnModuleInit {
             `Job ${job.id} failed (attempt ${job.attempts}/${maxAttempts}), retrying: ${message}`,
           )
           await this.jobRepository.markForRetry(job.id, message)
+          outcome = 'retry'
         } else {
           this.logger.error(
             `Job ${job.id} failed after ${job.attempts} attempt(s): ${message}`,
           )
           await this.jobRepository.markFailed(job.id, message)
+          outcome = 'failed'
         }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.logger.error(`Queue worker tick failed: ${message}`)
+      outcome = 'error'
     } finally {
       this.busy = false
+      if (jobId !== null && outcome !== null) {
+        this.logger.log(
+          `Job ${jobId} finished with status=${outcome}; queue is idle and ready for next job`,
+        )
+      }
     }
   }
 }
