@@ -16,17 +16,22 @@ type PendingQuery = {
   timer: NodeJS.Timeout
 }
 
+const READY_MARKER = 'ready to begin handling requests'
+
 @Injectable()
 export class KatagoClientService implements OnModuleDestroy {
   private readonly logger = new Logger(KatagoClientService.name)
   private process: ChildProcessWithoutNullStreams | null = null
   private readline: Interface | null = null
   private starting: Promise<void> | null = null
+  private stopping: Promise<void> | null = null
+  private idleStopTimer: NodeJS.Timeout | null = null
   private readonly pending = new Map<string, PendingQuery>()
 
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleDestroy(): Promise<void> {
+    this.clearIdleStop()
     await this.stop()
   }
 
@@ -36,24 +41,42 @@ export class KatagoClientService implements OnModuleDestroy {
       analyzeTurns: number[]
     },
   ): Promise<KatagoTurnResponse[]> {
+    this.clearIdleStop()
     await this.ensureStarted()
 
+    try {
+      return await this.runQuery(query)
+    } finally {
+      this.scheduleIdleStop()
+    }
+  }
+
+  private runQuery(
+    query: Record<string, unknown> & {
+      id: string
+      analyzeTurns: number[]
+    },
+  ): Promise<KatagoTurnResponse[]> {
     const timeoutMs = Number(
       this.configService.get('KATAGO_QUERY_TIMEOUT_MS') ?? 1_800_000,
     )
 
-    return new Promise<KatagoTurnResponse[]>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       if (this.pending.has(query.id)) {
         reject(new Error(`Duplicate KataGo query id: ${query.id}`))
+        return
+      }
+
+      const stdin = this.process?.stdin
+      if (!stdin) {
+        reject(new Error('KataGo stdin is not available'))
         return
       }
 
       const timer = setTimeout(() => {
         this.pending.delete(query.id)
         reject(
-          new Error(
-            `KataGo query ${query.id} timed out after ${timeoutMs}ms`,
-          ),
+          new Error(`KataGo query ${query.id} timed out after ${timeoutMs}ms`),
         )
       }, timeoutMs)
 
@@ -65,30 +88,24 @@ export class KatagoClientService implements OnModuleDestroy {
         timer,
       })
 
-      const line = `${JSON.stringify(query)}\n`
-      const stdin = this.process?.stdin
-      if (!stdin) {
+      stdin.write(`${JSON.stringify(query)}\n`, error => {
+        if (!error) {
+          return
+        }
         clearTimeout(timer)
         this.pending.delete(query.id)
-        reject(new Error('KataGo stdin is not available'))
-        return
-      }
-
-      stdin.write(line, error => {
-        if (error) {
-          clearTimeout(timer)
-          this.pending.delete(query.id)
-          reject(error)
-        }
+        reject(error)
       })
     })
   }
 
   private async ensureStarted(): Promise<void> {
+    if (this.stopping) {
+      await this.stopping
+    }
     if (this.process && !this.process.killed) {
       return
     }
-
     if (this.starting) {
       await this.starting
       return
@@ -103,15 +120,21 @@ export class KatagoClientService implements OnModuleDestroy {
   }
 
   private async start(): Promise<void> {
-    const bin = this.configService.get<string>('KATAGO_BIN') ?? '/opt/katago/katago'
+    const bin =
+      this.configService.get<string>('KATAGO_BIN') ?? '/opt/katago/katago'
     const config =
       this.configService.get<string>('KATAGO_CONFIG') ??
       '/home/node/app/katago/analysis.cfg'
     const model =
       this.configService.get<string>('KATAGO_MODEL') ??
       '/home/node/app/katago/models/default.bin.gz'
+    const readyTimeoutMs = Number(
+      this.configService.get('KATAGO_READY_TIMEOUT_MS') ?? 180_000,
+    )
 
-    this.logger.log(`Starting KataGo: ${bin} analysis -config ${config} -model ${model}`)
+    this.logger.log(
+      `Starting KataGo: ${bin} analysis -config ${config} -model ${model}`,
+    )
 
     const child = spawn(bin, ['analysis', '-config', config, '-model', model], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -119,48 +142,79 @@ export class KatagoClientService implements OnModuleDestroy {
 
     this.process = child
     this.readline = createInterface({ input: child.stdout })
-
     this.readline.on('line', line => this.onStdoutLine(line))
+    child.stderr.on('data', chunk => this.onStderr(chunk))
+    child.on('exit', (code, signal) => this.onProcessExit(code, signal))
 
-    child.stderr.on('data', chunk => {
-      const text = chunk.toString().trim()
-      if (text) {
-        this.logger.warn(`KataGo stderr: ${text}`)
-      }
-    })
+    await this.waitUntilReady(child, readyTimeoutMs)
+    this.logger.log('KataGo analysis engine started')
+  }
 
-    child.on('exit', (code, signal) => {
-      this.logger.error(`KataGo exited (code=${code}, signal=${signal})`)
-      this.process = null
-      this.readline?.close()
-      this.readline = null
+  private onStderr(chunk: Buffer): void {
+    const text = chunk.toString().trim()
+    if (text) {
+      this.logger.warn(`KataGo stderr: ${text}`)
+    }
+  }
 
-      for (const [id, pending] of this.pending) {
-        clearTimeout(pending.timer)
-        pending.reject(
-          new Error(`KataGo process exited while query ${id} was pending`),
-        )
-      }
-      this.pending.clear()
-    })
+  private onProcessExit(code: number | null, signal: NodeJS.Signals | null): void {
+    this.logger.warn(`KataGo exited (code=${code}, signal=${signal})`)
+    this.clearIdleStop()
+    this.process = null
+    this.readline?.close()
+    this.readline = null
 
-    // Даем движку время на загрузку модели; готовность ловим по отсутствию мгновенного exit
-    await new Promise<void>((resolve, reject) => {
-      const onEarlyExit = (code: number | null) => {
-        reject(new Error(`KataGo failed to start (exit code ${code})`))
-      }
-      child.once('exit', onEarlyExit)
-      setTimeout(() => {
-        child.off('exit', onEarlyExit)
-        if (child.killed || child.exitCode !== null) {
-          reject(new Error('KataGo failed to start'))
+    for (const [id, pending] of this.pending) {
+      clearTimeout(pending.timer)
+      pending.reject(
+        new Error(`KataGo process exited while query ${id} was pending`),
+      )
+    }
+    this.pending.clear()
+  }
+
+  private waitUntilReady(
+    child: ChildProcessWithoutNullStreams,
+    readyTimeoutMs: number,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let settled = false
+      let timeout: NodeJS.Timeout | null = null
+
+      const settle = (error?: Error) => {
+        if (settled) {
           return
         }
-        resolve()
-      }, 2000)
-    })
+        settled = true
+        if (timeout !== null) {
+          clearTimeout(timeout)
+        }
+        if (error) {
+          reject(error)
+        } else {
+          resolve()
+        }
+      }
 
-    this.logger.log('KataGo analysis engine started')
+      const onReadyStderr = (chunk: Buffer) => {
+        if (chunk.toString().includes(READY_MARKER)) {
+          settle()
+        }
+      }
+
+      const onEarlyExit = (code: number | null) => {
+        settle(new Error(`KataGo failed to start (exit code ${code})`))
+      }
+
+      timeout = setTimeout(() => {
+        settle(
+          new Error(`KataGo did not become ready within ${readyTimeoutMs}ms`),
+        )
+      }, readyTimeoutMs)
+
+      child.stderr.on('data', onReadyStderr)
+      child.once('exit', onEarlyExit)
+    })
   }
 
   private onStdoutLine(line: string): void {
@@ -178,16 +232,7 @@ export class KatagoClientService implements OnModuleDestroy {
     }
 
     if (typeof message.error === 'string') {
-      const id = typeof message.id === 'string' ? message.id : null
-      if (id && this.pending.has(id)) {
-        const pending = this.pending.get(id)!
-        clearTimeout(pending.timer)
-        this.pending.delete(id)
-        pending.reject(new Error(message.error))
-        return
-      }
-
-      this.logger.error(`KataGo error: ${message.error}`)
+      this.rejectPending(message.id, new Error(message.error))
       return
     }
 
@@ -202,31 +247,81 @@ export class KatagoClientService implements OnModuleDestroy {
       return
     }
 
-    const id = message.id
-    const turnNumber = message.turnNumber
-    if (typeof id !== 'string' || typeof turnNumber !== 'number') {
+    if (typeof message.id !== 'string' || typeof message.turnNumber !== 'number') {
       return
     }
 
-    const pending = this.pending.get(id)
+    const pending = this.pending.get(message.id)
     if (!pending) {
       return
     }
 
-    pending.results.set(turnNumber, message as KatagoTurnResponse)
-    pending.expectedTurns.delete(turnNumber)
+    pending.results.set(message.turnNumber, message as KatagoTurnResponse)
+    pending.expectedTurns.delete(message.turnNumber)
 
-    if (pending.expectedTurns.size === 0) {
+    if (pending.expectedTurns.size > 0) {
+      return
+    }
+
+    clearTimeout(pending.timer)
+    this.pending.delete(message.id)
+    pending.resolve(
+      [...pending.results.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, value]) => value),
+    )
+  }
+
+  private rejectPending(id: unknown, error: Error): void {
+    if (typeof id === 'string' && this.pending.has(id)) {
+      const pending = this.pending.get(id)!
       clearTimeout(pending.timer)
       this.pending.delete(id)
-      const ordered = [...pending.results.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([, value]) => value)
-      pending.resolve(ordered)
+      pending.reject(error)
+      return
     }
+    this.logger.error(`KataGo error: ${error.message}`)
+  }
+
+  private scheduleIdleStop(): void {
+    this.clearIdleStop()
+    if (this.pending.size > 0 || !this.process) {
+      return
+    }
+
+    const idleStopMs = Number(
+      this.configService.get('KATAGO_IDLE_STOP_MS') ?? 10_000,
+    )
+    if (idleStopMs <= 0) {
+      return
+    }
+
+    this.idleStopTimer = setTimeout(() => {
+      if (this.pending.size > 0) {
+        return
+      }
+      this.logger.log(
+        `KataGo idle for ${idleStopMs}ms — stopping process to free CPU/GPU`,
+      )
+      void this.stop()
+    }, idleStopMs)
+  }
+
+  private clearIdleStop(): void {
+    if (!this.idleStopTimer) {
+      return
+    }
+    clearTimeout(this.idleStopTimer)
+    this.idleStopTimer = null
   }
 
   private async stop(): Promise<void> {
+    this.clearIdleStop()
+
+    if (this.stopping) {
+      await this.stopping
+      return
+    }
     if (!this.process) {
       return
     }
@@ -236,17 +331,30 @@ export class KatagoClientService implements OnModuleDestroy {
     this.readline?.close()
     this.readline = null
 
-    child.stdin.end()
-    await new Promise<void>(resolve => {
+    this.stopping = this.terminate(child).finally(() => {
+      this.stopping = null
+    })
+    await this.stopping
+  }
+
+  private terminate(child: ChildProcessWithoutNullStreams): Promise<void> {
+    return new Promise(resolve => {
       const force = setTimeout(() => {
+        this.logger.warn('KataGo did not exit after stdin close — SIGKILL')
         child.kill('SIGKILL')
         resolve()
-      }, 5000)
+      }, 10_000)
 
       child.once('exit', () => {
         clearTimeout(force)
         resolve()
       })
+
+      try {
+        child.stdin.end()
+      } catch {
+        child.kill('SIGKILL')
+      }
     })
   }
 }

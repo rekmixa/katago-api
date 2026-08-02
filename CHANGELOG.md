@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-02
+
+### Added
+- `POST /api/analyze/batch` — enqueue up to 1000 SGFs at once (one job per game; per-item `queued` / `exists` / `error` + `sgfMd5`)
+- Separate `worker` container (`WorkerModule` / `yarn worker`) for queue + KataGo
+- Lightweight API image `docker/node/Dockerfile.api` (no CUDA/KataGo)
+- Configurable JSON body limit (`BODY_LIMIT`, default `50mb`) for large batches
+- KataGo idle shutdown (`KATAGO_IDLE_STOP_MS`) and ready wait (`KATAGO_READY_TIMEOUT_MS`)
+
+### Changed
+- API (`node`) no longer runs the queue worker or mounts GPU
+- Worker image keeps CUDA KataGo; prod/dev compose split `node` vs `worker`
+- `analysis.cfg`: higher default quality (`maxVisits=500`, threads `8×2`, `nnMaxBatchSize=16`)
+- Worker scripts use `nest build && node dist/src/worker` (Nest CLI 8 has no `--entryFile`)
+
+### Fixed
+- `413 request entity too large` on big analyze batches (Express default ~100kb)
+- KataGo leaving CPU pegged at 100% after jobs finish (stop process when idle)
+
 # [1.0.0] - 2026-08-01
 
 ### Added
