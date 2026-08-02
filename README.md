@@ -268,6 +268,18 @@ yarn knex seed:run
 yarn cli -- test:test -t test -sf
 ```
 
+Вернуть failed-джобы в `pending` (сбрасывает `error`, `attempts`, `started_at`, `finished_at`):
+
+```bash
+# все failed
+yarn cli -- queue:requeue-failed
+
+# одна джоба
+yarn cli -- queue:requeue-failed --job-id 25572
+# или коротко:
+yarn cli -- queue:requeue-failed -j 25572
+```
+
 Локальный запуск storage:
 
 ```bash

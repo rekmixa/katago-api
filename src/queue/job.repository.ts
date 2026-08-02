@@ -110,6 +110,22 @@ export class JobRepository {
       })
   }
 
+  async requeueFailed(jobId?: number): Promise<number> {
+    const query = this.table().where('status', JobStatus.Failed)
+
+    if (jobId !== undefined) {
+      query.andWhere('id', jobId)
+    }
+
+    return query.update({
+      status: JobStatus.Pending,
+      error: null,
+      attempts: 0,
+      started_at: null,
+      finished_at: null,
+    })
+  }
+
   /** node-pg отдаёт bigint строкой — приводим id к number */
   private normalize(job: Job): Job {
     return {
