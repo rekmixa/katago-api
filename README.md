@@ -74,12 +74,13 @@ docker-compose up -d
 
 ```
 maxVisits = 500
-numAnalysisThreads = 8
-numSearchThreadsPerAnalysisThread = 2
+numAnalysisThreads = 16
+numSearchThreadsPerAnalysisThread = 1
 nnMaxBatchSize = 16
+nnCacheSizePowerOfTwo = 20
 ```
 
-Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 8) и/или число потоков.
+Если возвращается swap / CUDA OOM — уменьши `numAnalysisThreads` и `nnMaxBatchSize` вместе.
 
 ## Как анализируются партии
 
