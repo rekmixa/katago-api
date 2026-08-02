@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-02
+
+### Added
+- CLI `queue:requeue-failed` — move failed jobs back to `pending` (all, or one via `--job-id` / `-j`); clears `error`, `attempts`, `started_at`, `finished_at`
+- Queue worker log after each job: final status (`done` / `failed` / `retry` / `error`) and that the queue is idle again
+
+### Fixed
+- After a KataGo query timeout the engine stayed alive and pegged CPU, which froze the worker cron on a 2-core VM — now SIGKILL on timeout
+- Faster KataGo terminate on idle-stop; stderr logging throttled so Nest event loop is less likely to stall under load
+
 ## [1.1.0] - 2026-08-02
 
 ### Added
