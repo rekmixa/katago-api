@@ -68,16 +68,16 @@ docker-compose build --no-cache node
 docker-compose up -d
 ```
 
-`katago/analysis.cfg` настроен под NVIDIA L40S-4Q (4 GB VRAM):
+`katago/analysis.cfg` настроен под NVIDIA L40S-4Q (4 GB VRAM) и **2-ядерный** CPU:
 
 ```
 maxVisits = 500
-numAnalysisThreads = 8
-numSearchThreadsPerAnalysisThread = 2
-nnMaxBatchSize = 16
+numAnalysisThreads = 2
+numSearchThreadsPerAnalysisThread = 1
+nnMaxBatchSize = 4
 ```
 
-Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 8) и/или число потоков.
+Если всё ещё получаешь CUDA OOM — уменьши `nnMaxBatchSize` (например до 2).
 
 ## Как анализируются партии
 
