@@ -29,6 +29,7 @@ export class QueueWorker implements OnModuleInit {
     this.busy = true
     let jobId: number | null = null
     let outcome: 'done' | 'failed' | 'retry' | 'error' | null = null
+    let startedAtMs: number | null = null
 
     try {
       const job = await this.jobRepository.claimNextPending()
@@ -37,6 +38,7 @@ export class QueueWorker implements OnModuleInit {
       }
 
       jobId = job.id
+      startedAtMs = Date.now()
 
       const queueable = this.registry.get(job.queueable_class)
       if (!queueable) {
@@ -80,8 +82,14 @@ export class QueueWorker implements OnModuleInit {
     } finally {
       this.busy = false
       if (jobId !== null && outcome !== null) {
+        const durationSec =
+          startedAtMs === null
+            ? null
+            : Math.round((Date.now() - startedAtMs) / 1000)
+        const durationPart =
+          durationSec === null ? '' : `; duration=${durationSec}s`
         this.logger.log(
-          `Job ${jobId} finished with status=${outcome}; queue is idle and ready for next job`,
+          `Job ${jobId} finished with status=${outcome}${durationPart}; queue is idle and ready for next job`,
         )
       }
     }
