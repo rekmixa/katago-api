@@ -1,3 +1,8 @@
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
 all: git-pull up migrate logs
 
 dev: up logs
@@ -45,6 +50,11 @@ migrate:
 
 seed:
 	@docker compose exec node yarn knex seed:run
+
+db-dump:
+	@mkdir -p db-backups
+	@docker compose exec -T db pg_dump -U "$(DB_USER)" -d "$(DB_NAME)" > "db-backups/dump_$$(date +%Y%m%d_%H%M%S).sql"
+	@ls -lah db-backups/dump_*.sql | tail -n 1
 
 rm-git:
 	@rm -rf .git

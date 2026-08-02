@@ -37,6 +37,7 @@ lerna-debug.log*
 docker-compose.override.yml
 yarn-error.log
 data
+db-backups/
 NOTES.md
 
 # KataGo
