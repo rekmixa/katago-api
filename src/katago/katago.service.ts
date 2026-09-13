@@ -10,6 +10,7 @@ import {
   ANALYZE_BATCH_MAX_SIZE,
   AnalyzeBatchRequestDto,
   AnalyzeRequestDto,
+  AnalyzeResultsBatchRequestDto,
   KatagoAnalyzeOptions,
   pickKatagoOptions,
 } from './analyze-request.dto'
@@ -23,6 +24,16 @@ export type AnalyzeStatusResponse = {
   analyzeResult: Record<string, unknown> | null
   error: string | null
 }
+
+export type AnalyzeBatchStatusItem =
+  | AnalyzeStatusResponse
+  | {
+      jobId: number
+      status: 'not_found'
+      sgf: null
+      analyzeResult: null
+      error: string
+    }
 
 export enum AnalyzeBatchItemResultStatus {
   Queued = 'queued',
@@ -165,6 +176,61 @@ export class KatagoService {
       sgf: result.sgf,
       analyzeResult: result.analyze_result,
       error: job.error,
+    }
+  }
+
+  async getAnalyzeByJobIds(
+    body: AnalyzeResultsBatchRequestDto | Record<string, unknown>,
+  ): Promise<{ results: AnalyzeBatchStatusItem[] }> {
+    const jobIds = body.jobIds
+    if (!Array.isArray(jobIds) || jobIds.length === 0) {
+      throw new BadRequestException('jobIds must not be empty')
+    }
+    if (jobIds.length > ANALYZE_BATCH_MAX_SIZE) {
+      throw new BadRequestException(
+        `jobIds must contain at most ${ANALYZE_BATCH_MAX_SIZE} items`,
+      )
+    }
+
+    const parsedIds: number[] = []
+    for (const id of jobIds) {
+      if (!Number.isInteger(id) || (id as number) < 1) {
+        throw new BadRequestException(
+          'jobIds must be an array of positive integers',
+        )
+      }
+      parsedIds.push(id)
+    }
+
+    const [jobs, resultRows] = await Promise.all([
+      this.queueService.findByIds(parsedIds),
+      this.sgfAnalyzeResultRepository.findByJobIdIn(parsedIds),
+    ])
+    const jobsById = new Map(jobs.map(job => [job.id, job]))
+    const resultsByJobId = new Map(resultRows.map(row => [row.job_id, row]))
+
+    return {
+      results: parsedIds.map(jobId => {
+        const job = jobsById.get(jobId)
+        const result = resultsByJobId.get(jobId)
+        if (!job || !result) {
+          return {
+            jobId,
+            status: 'not_found',
+            sgf: null,
+            analyzeResult: null,
+            error: `Job ${jobId} not found`,
+          }
+        }
+
+        return {
+          jobId: job.id,
+          status: job.status,
+          sgf: result.sgf,
+          analyzeResult: result.analyze_result,
+          error: job.error,
+        }
+      }),
     }
   }
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-13
+### Added
+- analyze/results api method
+
 ## [1.2.0] - 2026-08-02
 
 ### Added

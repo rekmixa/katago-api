@@ -45,6 +45,10 @@ export type AnalyzeBatchRequestDto = KatagoAnalyzeOptions & {
   sgfs: string[]
 }
 
+export type AnalyzeResultsBatchRequestDto = {
+  jobIds: number[]
+}
+
 export const ANALYZE_BATCH_MAX_SIZE = 1000
 
 export const KATAGO_OPTION_KEYS: (keyof KatagoAnalyzeOptions)[] = [

@@ -39,6 +39,15 @@ export class SgfAnalyzeResultRepository {
     return row ? this.normalize(row) : null
   }
 
+  async findByJobIdIn(jobIds: number[]): Promise<SgfAnalyzeResult[]> {
+    if (jobIds.length === 0) {
+      return []
+    }
+
+    const rows = await this.table().whereIn('job_id', jobIds)
+    return rows.map(row => this.normalize(row))
+  }
+
   async findBySgfMd5(sgfMd5: string): Promise<SgfAnalyzeResult | null> {
     const row = await this.table()
       .where('sgf_md5', sgfMd5)

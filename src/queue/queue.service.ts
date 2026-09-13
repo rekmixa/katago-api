@@ -29,6 +29,10 @@ export class QueueService {
     return this.jobRepository.findById(id)
   }
 
+  async findByIds(ids: number[]): Promise<Job[]> {
+    return this.jobRepository.findByIds(ids)
+  }
+
   async requeueFailed(jobId?: number): Promise<number> {
     return this.jobRepository.requeueFailed(jobId)
   }

@@ -11,6 +11,7 @@ import { ApiTokenGuard } from '../auth/api-token.guard'
 import {
   AnalyzeBatchRequestDto,
   AnalyzeRequestDto,
+  AnalyzeResultsBatchRequestDto,
 } from './analyze-request.dto'
 import { KatagoService } from './katago.service'
 
@@ -27,6 +28,11 @@ export class KatagoController {
   @Post('analyze/batch')
   async startAnalyzeBatch(@Body() body: AnalyzeBatchRequestDto) {
     return this.katagoService.startAnalyzeBatch(body ?? { sgfs: [] })
+  }
+
+  @Post('analyze/results')
+  async getAnalyzeBatch(@Body() body: AnalyzeResultsBatchRequestDto) {
+    return this.katagoService.getAnalyzeByJobIds(body ?? { jobIds: [] })
   }
 
   @Get('analyze/:jobId')

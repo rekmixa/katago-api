@@ -19,6 +19,15 @@ export class JobRepository {
     return job ? this.normalize(job) : null
   }
 
+  async findByIds(ids: number[]): Promise<Job[]> {
+    if (ids.length === 0) {
+      return []
+    }
+
+    const jobs = await this.table().whereIn('id', ids)
+    return jobs.map(job => this.normalize(job))
+  }
+
   async create(
     queueableClass: string,
     payload: Record<string, unknown> | null = null,
